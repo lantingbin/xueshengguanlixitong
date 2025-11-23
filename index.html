@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>培训机构出勤统计系统</title>
+  <!-- 引入外部资源 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  
+  <!-- Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#69B1FF',
+            accent: '#FF5E62',
+            dark: '#0F172A',
+            light: '#F8FAFC',
+            glow: '#4FD1C5',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['Roboto Mono', 'monospace'],
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'glow': 'glow 2s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            },
+            glow: {
+              '0%': { boxShadow: '0 0 5px #4FD1C5, 0 0 10px #4FD1C5' },
+              '100%': { boxShadow: '0 0 15px #4FD1C5, 0 0 30px #4FD1C5' },
+            }
+          },
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定义工具类 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto { content-visibility: auto; }
+      .text-shadow { text-shadow: 0 0 10px rgba(79, 209, 197, 0.7); }
+      .bg-grid { 
+        background-size: 50px 50px; 
+        background-image: 
+          linear-gradient(to right, rgba(79, 209, 197, 0.1) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(79, 209, 197, 0.1) 1px, transparent 1px);
+      }
+      .backdrop-blur-xl { backdrop-filter: blur(20px); }
+      .border-glow { box-shadow: 0 0 5px #4FD1C5, 0 0 10px #4FD1C5; }
+    }
+  </style>
+</head>
+
+<body class="bg-dark text-light min-h-screen overflow-x-hidden">
+  <!-- 背景效果 -->
+  <div class="fixed inset-0 bg-grid opacity-30 pointer-events-none"></div>
+  <div class="fixed top-0 left-0 w-full h-full bg-gradient-to-br from-dark/90 via-dark/80 to-dark/90 pointer-events-none"></div>
+  
+  <!-- 页面容器 -->
+  <div class="relative z-10 min-h-screen flex flex-col">
+    <!-- 导航栏 -->
+    <header class="border-b border-primary/30 backdrop-blur-lg bg-dark/70 sticky top-0 z-20">
+      <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <i class="fa fa-graduation-cap text-glow text-2xl animate-pulse-slow"></i>
+          <h1 class="text-[clamp(1.2rem,3vw,1.8rem)] font-bold text-shadow">
+            <span class="text-primary">创客机器人</span><span class="text-glow">编程</span>
+            <span class="block text-xs md:text-sm font-normal mt-1 tracking-widest">ATTENDANCE SYSTEM</span>
+          </h1>
+        </div>
+        <nav>
+          <button id="statsBtn" class="px-4 py-2 rounded-lg bg-primary/20 hover:bg-primary/40 border border-primary/50 transition-all duration-300 flex items-center space-x-2 group">
+            <i class="fa fa-bar-chart text-primary group-hover:text-glow transition-colors"></i>
+            <span>一键统计</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+    
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+      <!-- 班级选择区域 -->
+      <section id="classSelection" class="py-8">
+        <div class="text-center mb-12">
+          <h2 class="text-[clamp(1.5rem,4vw,2.5rem)] font-bold mb-4">
+            <span class="text-primary">学生</span>
+            <span class="text-glow">出勤</span>
+          </h2>
+          <p class="text-gray-400 max-w-2xl mx-auto">点击下方班级卡片，管理学生出勤情况</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <!-- 周五班级 -->
+          <div class="class-card" data-day="周五" data-weekday="5">
+            <div class="bg-gradient-to-br from-primary/20 to-dark/50 rounded-xl border border-primary/30 p-6 transform transition-all duration-500 hover:scale-105 hover:border-glow group">
+              <div class="flex flex-col items-center">
+                <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4 border border-primary/30 group-hover:border-glow transition-all">
+                  <span class="text-3xl font-bold text-primary">周五</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">周五编程班</h3>
+                <p class="text-gray-400 text-sm text-center mb-4">
+                  <i class="fa fa-clock-o mr-1"></i> 18:40-8:00
+                </p>
+                <div class="students-count bg-dark/50 rounded-full px-4 py-1 text-sm">
+                  <i class="fa fa-users text-primary mr-1"></i>
+                  <span id="fridayCount" class="count">0</span> 名学生
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 周六班级 -->
+          <div class="class-card" data-day="周六" data-weekday="6">
+            <div class="bg-gradient-to-br from-secondary/20 to-dark/50 rounded-xl border border-secondary/30 p-6 transform transition-all duration-500 hover:scale-105 hover:border-glow group">
+              <div class="flex flex-col items-center">
+                <div class="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center mb-4 border border-secondary/30 group-hover:border-glow transition-all">
+                  <span class="text-3xl font-bold text-secondary">周六</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">周六编程班</h3>
+                <p class="text-gray-400 text-sm text-center mb-4">
+                  <i class="fa fa-clock-o mr-1"></i> 8:50-18:00
+                </p>
+                <div class="students-count bg-dark/50 rounded-full px-4 py-1 text-sm">
+                  <i class="fa fa-users text-secondary mr-1"></i>
+                  <span id="saturdayCount" class="count">0</span> 名学生
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 周天班级 -->
+          <div class="class-card" data-day="周天" data-weekday="0">
+            <div class="bg-gradient-to-br from-accent/20 to-dark/50 rounded-xl border border-accent/30 p-6 transform transition-all duration-500 hover:scale-105 hover:border-glow group">
+              <div class="flex flex-col items-center">
+                <div class="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mb-4 border border-accent/30 group-hover:border-glow transition-all">
+                  <span class="text-3xl font-bold text-accent">周天</span>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">周天编程班</h3>
+                <p class="text-gray-400 text-sm text-center mb-4">
+                  <i class="fa fa-clock-o mr-1"></i> 8:50-18:00
+                </p>
+                <div class="students-count bg-dark/50 rounded-full px-4 py-1 text-sm">
+                  <i class="fa fa-users text-accent mr-1"></i>
+                  <span id="sundayCount" class="count">0</span> 名学生
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 学生管理区域 -->
+      <section id="studentManagement" class="hidden py-8">
+        <div class="flex justify-between items-center mb-8">
+          <div>
+            <h2 class="text-2xl font-bold flex items-center">
+              <span id="currentDay" class="text-primary"></span>
+              <span class="text-gray-400 ml-2">班级管理</span>
+            </h2>
+            <p class="text-gray-400 mt-1">
+              管理<span id="currentClassName" class="text-glow"></span>的学生出勤情况
+            </p>
+          </div>
+          <button id="backToClasses" class="flex items-center space-x-2 text-gray-400 hover:text-glow transition-colors">
+            <i class="fa fa-arrow-left"></i>
+            <span>返回班级选择</span>
+          </button>
+        </div>
+        
+        <!-- 周日期循环切换 -->
+        <div class="bg-dark/60 backdrop-blur-lg rounded-xl border border-primary/30 p-4 mb-6 max-w-3xl mx-auto">
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-medium flex items-center">
+              <i class="fa fa-calendar text-glow mr-2"></i>
+              <span>每周签到循环</span>
+            </h3>
+            <div class="flex items-center space-x-4">
+              <button id="prevWeek" class="p-2 rounded-full hover:bg-primary/20 transition-colors">
+                <i class="fa fa-chevron-left text-gray-400 hover:text-glow"></i>
+              </button>
+              <div id="currentWeekRange" class="text-sm text-gray-300">
+                <!-- 显示当前周范围 -->
+              </div>
+              <button id="nextWeek" class="p-2 rounded-full hover:bg-primary/20 transition-colors">
+                <i class="fa fa-chevron-right text-gray-400 hover:text-glow"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- 显示当前班级对应的上课日 -->
+          <div class="mt-4 flex flex-wrap gap-3">
+            <div id="classWeekdays" class="flex flex-wrap gap-2">
+              <!-- 动态生成每周上课日标签 -->
+            </div>
+          </div>
+        </div>
+        
+        <!-- 添加学生表单 -->
+        <div class="bg-dark/60 backdrop-blur-lg rounded-xl border border-primary/30 p-6 mb-8 max-w-3xl mx-auto">
+          <h3 class="text-xl font-semibold mb-4 flex items-center">
+            <i class="fa fa-plus-circle text-glow mr-2"></i>
+            添加新学生
+          </h3>
+          <form id="addStudentForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label for="studentName" class="block text-sm font-medium text-gray-400 mb-1">学生姓名</label>
+              <input type="text" id="studentName" name="studentName" required
+                class="w-full px-4 py-2 bg-dark/50 border border-primary/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-glow text-light">
+            </div>
+            <div>
+              <label for="course" class="block text-sm font-medium text-gray-400 mb-1">课程选择</label>
+              <select id="course" name="course" required
+                class="w-full px-4 py-2 bg-dark/50 border border-primary/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-glow text-light">
+                <option value="">请选择课程</option>
+                <option value="scratch">Scratch</option>
+                <option value="python">Python</option>
+                <option value="c++">C++</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <button type="submit" class="w-full px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors flex items-center justify-center space-x-2">
+                <i class="fa fa-user-plus"></i>
+                <span>添加学生</span>
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- 学生列表 -->
+        <div class="max-w-4xl mx-auto">
+          <h3 class="text-xl font-semibold mb-4 flex items-center">
+            <i class="fa fa-list-alt text-glow mr-2"></i>
+            学生出勤列表
+          </h3>
+          <div id="studentsList" class="space-y-3">
+            <!-- 学生列表为空时显示 -->
+            <div id="emptyList" class="text-center py-12 bg-dark/30 rounded-xl border border-dashed border-primary/20">
+              <i class="fa fa-frown-o text-4xl text-gray-500 mb-4"></i>
+              <p class="text-gray-400">该班级暂无学生，请添加学生</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 统计结果区域 -->
+      <section id="statistics" class="hidden py-8">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div>
+            <h2 class="text-2xl font-bold flex items-center">
+              <span class="text-glow">出勤</span>
+              <span class="text-gray-400 ml-2">统计分析</span>
+            </h2>
+            <p class="text-gray-400 mt-1">
+              <span id="statsPeriodText">本周</span>出勤情况可视化分析
+            </p>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="relative">
+              <select id="statsTimeSelector" class="appearance-none bg-dark/50 border border-primary/50 text-light rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-glow">
+                <option value="week">本周统计</option>
+                <option value="month">本月统计</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <i class="fa fa-chevron-down text-xs"></i>
+              </div>
+            </div>
+            <button id="backToHome" class="flex items-center space-x-2 text-gray-400 hover:text-glow transition-colors">
+              <i class="fa fa-arrow-left"></i>
+              <span>返回主页</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 统计图表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div class="bg-dark/60 backdrop-blur-lg rounded-xl border border-primary/30 p-6">
+            <h3 class="text-xl font-semibold mb-4" id="chart1Title">本周整体出勤情况</h3>
+            <div class="h-64">
+              <canvas id="attendanceChart"></canvas>
+            </div>
+          </div>
+          <div class="bg-dark/60 backdrop-blur-lg rounded-xl border border-primary/30 p-6">
+            <h3 class="text-xl font-semibold mb-4" id="chart2Title">本周各班级出勤对比</h3>
+            <div class="h-64">
+              <canvas id="classComparisonChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 总计行 -->
+        <div class="bg-dark/60 backdrop-blur-lg rounded-xl border border-primary/30 p-6 mb-8 max-w-4xl mx-auto">
+          <div class="flex justify-around items-center text-center">
+            <div>
+              <p class="text-sm text-gray-400">总上课人数</p>
+              <p class="text-2xl font-bold text-glow" id="totalPresentCount">0</p>
+            </div>
+            <div class="h-12 w-px bg-primary/30"></div>
+            <div>
+              <p class="text-sm text-gray-400">总请假人数</p>
+              <p class="text-2xl font-bold text-accent" id="totalAbsentCount">0</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 请假学生名单 -->
+        <div class="bg-dark/60 backdrop-blur-lg rounded-xl border border-primary/30 p-6 max-w-4xl mx-auto">
+          <h3 class="text-xl font-semibold mb-4 flex items-center">
+            <i class="fa fa-calendar-times-o text-accent mr-2"></i>
+            <span id="absentListTitle">本周请假学生名单</span>
+          </h3>
+          <div id="absentStudents" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div id="noAbsentStudents" class="col-span-1 md:col-span-2 text-center py-8">
+              <i class="fa fa-smile-o text-4xl text-green-500 mb-4"></i>
+              <p class="text-gray-400">本周暂无学生请假</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    
+    <!-- 页脚 -->
+    <footer class="border-t border-primary/30 backdrop-blur-lg bg-dark/70 py-6">
+      <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+        <p>© 2025 创客机器人培训机构 - 出勤统计系统</p>
+        <p class="mt-2">
+          <i class="fa fa-code text-primary mr-1"></i> 
+          用科技赋能教育
+        </p>
+      </div>
+    </footer>
+  </div>
+  
+  <!-- JavaScript逻辑 -->
+  <script>
+    // 初始化数据结构
+    const attendanceData = {
+      周五: [],
+      周六: [],
+      周天: []
+    };
+    
+    // 全局状态
+    let currentClass = {
+      day: '',
+      weekday: null,
+      weekOffset: 0
+    };
+    
+    // DOM元素
+    const classSelection = document.getElementById('classSelection');
+    const studentManagement = document.getElementById('studentManagement');
+    const statistics = document.getElementById('statistics');
+    const classCards = document.querySelectorAll('.class-card');
+    const backToClasses = document.getElementById('backToClasses');
+    const backToHome = document.getElementById('backToHome');
+    const statsBtn = document.getElementById('statsBtn');
+    const addStudentForm = document.getElementById('addStudentForm');
+    const studentsList = document.getElementById('studentsList');
+    const emptyList = document.getElementById('emptyList');
+    const currentDay = document.getElementById('currentDay');
+    const currentClassName = document.getElementById('currentClassName');
+    const absentStudents = document.getElementById('absentStudents');
+    const noAbsentStudents = document.getElementById('noAbsentStudents');
+    const prevWeek = document.getElementById('prevWeek');
+    const nextWeek = document.getElementById('nextWeek');
+    const currentWeekRange = document.getElementById('currentWeekRange');
+    const classWeekdays = document.getElementById('classWeekdays');
+    const statsTimeSelector = document.getElementById('statsTimeSelector');
+    const statsPeriodText = document.getElementById('statsPeriodText');
+    const chart1Title = document.getElementById('chart1Title');
+    const chart2Title = document.getElementById('chart2Title');
+    const absentListTitle = document.getElementById('absentListTitle');
+    const totalPresentCountEl = document.getElementById('totalPresentCount');
+    const totalAbsentCountEl = document.getElementById('totalAbsentCount');
+    
+    // -------------------------- 日期处理工具函数 --------------------------
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    function getMondayOfWeek(weekOffset = 0) {
+      const today = new Date();
+      const day = today.getDay() || 7;
+      const diff = today.getDate() - day + 1 + (weekOffset * 7);
+      const monday = new Date(today.setDate(diff));
+      return new Date(monday.setHours(0, 0, 0, 0));
+    }
+    
+    function getSundayOfWeek(weekOffset = 0) {
+      const monday = getMondayOfWeek(weekOffset);
+      return new Date(monday.setDate(monday.getDate() + 6));
+    }
+    
+    function getWeekdayDate(weekday, weekOffset = 0) {
+      const monday = getMondayOfWeek(weekOffset);
+      const diff = weekday === 0 ? 6 : weekday - 1;
+      return new Date(monday.setDate(monday.getDate() + diff));
+    }
+    
+    function updateWeekRangeDisplay() {
+      const monday = getMondayOfWeek(currentClass.weekOffset);
+      const sunday = getSundayOfWeek(currentClass.weekOffset);
+      currentWeekRange.textContent = `${formatDate(monday)} ~ ${formatDate(sunday)}`;
+    }
+    
+    function updateClassWeekdayTags() {
+      classWeekdays.innerHTML = '';
+      if (!currentClass.weekday) return;
+      
+      const classDate = getWeekdayDate(currentClass.weekday, currentClass.weekOffset);
+      const dateStr = formatDate(classDate);
+      const shortDate = `${dateStr.split('-')[1]}-${dateStr.split('-')[2]}`;
+      
+      const tag = document.createElement('div');
+      tag.className = 'px-3 py-1 rounded-full bg-primary/20 text-primary text-sm flex items-center';
+      tag.innerHTML = `
+        <i class="fa fa-calendar-check-o mr-1"></i>
+        ${currentClass.day}（${shortDate}）
+      `;
+      classWeekdays.appendChild(tag);
+    }
+
+    // 获取当前月份的第一天
+    function getFirstDayOfMonth() {
+        const today = new Date();
+        return new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+
+    // 获取当前月份的最后一天
+    function getLastDayOfMonth() {
+        const today = new Date();
+        return new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+    
+    // -------------------------- 数据处理与渲染 --------------------------
+    function updateStudentCounts() {
+      for (const day in attendanceData) {
+        const countElement = document.getElementById(`${dayToId(day)}Count`);
+        countElement.textContent = attendanceData[day].length;
+      }
+    }
+    
+    function dayToId(day) {
+      switch(day) {
+        case '周五': return 'friday';
+        case '周六': return 'saturday';
+        case '周天': return 'sunday';
+        default: return '';
+      }
+    }
+    
+    function formatCourseName(course) {
+      switch(course) {
+        case 'scratch': return 'Scratch 编程';
+        case 'python': return 'Python 编程';
+        case 'c++': return 'C++ 编程';
+        default: return course;
+      }
+    }
+    
+    function renderStudentList() {
+      const day = currentClass.day;
+      const students = attendanceData[day] || [];
+      studentsList.innerHTML = '';
+      
+      if (students.length === 0) {
+        studentsList.appendChild(emptyList.cloneNode(true));
+        return;
+      }
+      
+      const signInDate = formatDate(getWeekdayDate(currentClass.weekday, currentClass.weekOffset));
+      
+      students.forEach((student, index) => {
+        const signInStatus = student.signIns?.[signInDate] || 'unknown';
+        
+        const studentItem = document.createElement('div');
+        studentItem.className = 'bg-dark/40 rounded-lg border border-primary/30 p-4 flex justify-between items-center transition-all duration-300 hover:border-primary/50 hover:bg-dark/50';
+        studentItem.innerHTML = `
+          <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+              ${student.name.charAt(0)}
+            </div>
+            <div>
+              <h4 class="font-medium">${student.name}</h4>
+              <p class="text-sm text-gray-400">
+                <i class="fa fa-book text-primary mr-1"></i>
+                ${formatCourseName(student.course)}
+              </p>
+              <p class="text-xs text-gray-500 mt-1">
+                <i class="fa fa-calendar-o mr-1"></i>
+                签到日期：${signInDate}
+              </p>
+            </div>
+          </div>
+          <div class="flex space-x-2">
+            <button class="signin-btn px-3 py-1 rounded ${signInStatus === 'present' ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'bg-dark/50 text-gray-400 border border-gray-700'} transition-colors" data-index="${index}" data-status="present">
+              <i class="fa fa-check mr-1"></i>到课
+            </button>
+            <button class="signin-btn px-3 py-1 rounded ${signInStatus === 'absent' ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-dark/50 text-gray-400 border border-gray-700'} transition-colors" data-index="${index}" data-status="absent">
+              <i class="fa fa-times mr-1"></i>请假
+            </button>
+            <button class="delete-student-btn px-3 py-1 rounded bg-dark/50 text-gray-400 border border-gray-700 hover:bg-accent/20 hover:text-accent hover:border-accent/30 transition-colors" data-index="${index}">
+              <i class="fa fa-trash mr-1"></i>删除
+            </button>
+          </div>
+        `;
+        studentsList.appendChild(studentItem);
+      });
+      
+      // 绑定签到按钮事件
+      document.querySelectorAll('.signin-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const index = parseInt(this.getAttribute('data-index'));
+          const status = this.getAttribute('data-status');
+          const signInDate = formatDate(getWeekdayDate(currentClass.weekday, currentClass.weekOffset));
+          
+          const student = attendanceData[currentClass.day][index];
+          if (!student.signIns) student.signIns = {};
+          student.signIns[signInDate] = status;
+          
+          renderStudentList();
+        });
+      });
+
+      // 绑定删除学生按钮事件
+      document.querySelectorAll('.delete-student-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const index = parseInt(this.getAttribute('data-index'));
+          
+          // 简单的确认提示
+          if (confirm('确定要删除该学生吗？此操作不可恢复。')) {
+            // 从数据中删除学生
+            attendanceData[currentClass.day].splice(index, 1);
+            
+            // 更新UI
+            updateStudentCounts();
+            renderStudentList();
+          }
+        });
+      });
+    }
+    
+    // -------------------------- 事件绑定 --------------------------
+    classCards.forEach(card => {
+      card.addEventListener('click', function() {
+        const day = this.getAttribute('data-day');
+        const weekday = parseInt(this.getAttribute('data-weekday'));
+        
+        currentClass = { day, weekday, weekOffset: 0 };
+        
+        currentDay.textContent = day;
+        currentClassName.textContent = `${day}编程班`;
+        
+        updateWeekRangeDisplay();
+        updateClassWeekdayTags();
+        
+        classSelection.classList.add('hidden');
+        studentManagement.classList.remove('hidden');
+        
+        renderStudentList();
+      });
+    });
+    
+    backToClasses.addEventListener('click', function() {
+      studentManagement.classList.add('hidden');
+      classSelection.classList.remove('hidden');
+    });
+    
+    backToHome.addEventListener('click', function() {
+      statistics.classList.add('hidden');
+      classSelection.classList.remove('hidden');
+    });
+    
+    prevWeek.addEventListener('click', function() {
+      currentClass.weekOffset--;
+      updateWeekRangeDisplay();
+      updateClassWeekdayTags();
+      renderStudentList();
+    });
+    
+    nextWeek.addEventListener('click', function() {
+      currentClass.weekOffset++;
+      updateWeekRangeDisplay();
+      updateClassWeekdayTags();
+      renderStudentList();
+    });
+    
+    addStudentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const studentName = document.getElementById('studentName').value.trim();
+      const course = document.getElementById('course').value;
+      
+      if (!studentName || !course) {
+        alert('请填写学生姓名并选择课程');
+        return;
+      }
+      
+      // 学生添加一次后会被永久保存，每周循环使用
+      attendanceData[currentClass.day].push({
+        name: studentName,
+        course: course,
+        signIns: {} // 用于存储每周的签到记录
+      });
+      
+      addStudentForm.reset();
+      updateStudentCounts();
+      renderStudentList();
+    });
+    
+    // -------------------------- 统计功能 --------------------------
+    statsBtn.addEventListener('click', function() {
+      const totalStudents = Object.values(attendanceData).reduce((sum, students) => sum + students.length, 0);
+      if (totalStudents === 0) {
+        alert('暂无学生数据，请先添加学生');
+        return;
+      }
+      
+      classSelection.classList.add('hidden');
+      studentManagement.classList.add('hidden');
+      statistics.classList.remove('hidden');
+
+      // 默认选中并加载本周统计
+      statsTimeSelector.value = 'week';
+      generateStatistics('week');
+    });
+
+    // 当时间选择器变化时，重新生成统计
+    statsTimeSelector.addEventListener('change', function() {
+        generateStatistics(this.value);
+    });
+
+    function generateStatistics(timeRange) {
+      let periodText, chart1TitleText, chart2TitleText, absentListTitleText;
+      let startDate, endDate;
+
+      if (timeRange === 'week') {
+          periodText = '本周';
+          chart1TitleText = '本周整体出勤情况';
+          chart2TitleText = '本周各班级出勤对比';
+          absentListTitleText = '本周请假学生名单';
+          startDate = getMondayOfWeek();
+          endDate = getSundayOfWeek();
+      } else if (timeRange === 'month') {
+          periodText = '本月';
+          chart1TitleText = '本月整体出勤情况';
+          chart2TitleText = '本月各班级出勤对比';
+          absentListTitleText = '本月请假学生名单';
+          startDate = getFirstDayOfMonth();
+          endDate = getLastDayOfMonth();
+      }
+
+      // 更新页面上的文本
+      statsPeriodText.textContent = periodText;
+      chart1Title.textContent = chart1TitleText;
+      chart2Title.textContent = chart2TitleText;
+      absentListTitle.textContent = absentListTitleText;
+      noAbsentStudents.querySelector('p').textContent = `${periodText}暂无学生请假`;
+
+      let totalPresent = 0;
+      let totalAbsent = 0;
+      const absentStudentsList = [];
+      const classAttendance = {
+        周五: { present: 0, absent: 0 },
+        周六: { present: 0, absent: 0 },
+        周天: { present: 0, absent: 0 }
+      };
+      
+      // 遍历所有班级的学生
+      for (const day in attendanceData) {
+        const students = attendanceData[day];
+        
+        students.forEach(student => {
+          // 遍历学生的所有签到记录
+          if (student.signIns) {
+            for (const dateStr in student.signIns) {
+              const signInDate = new Date(dateStr);
+              
+              // 检查签到日期是否在统计范围内
+              if (signInDate >= startDate && signInDate <= endDate) {
+                const signInStatus = student.signIns[dateStr];
+                
+                if (signInStatus === 'present') {
+                  totalPresent++;
+                  classAttendance[day].present++;
+                } else {
+                  totalAbsent++;
+                  classAttendance[day].absent++;
+                  absentStudentsList.push({
+                    name: student.name,
+                    day: day,
+                    course: student.course,
+                    date: dateStr
+                  });
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // 更新总计
+      totalPresentCountEl.textContent = totalPresent;
+      totalAbsentCountEl.textContent = totalAbsent;
+
+      // 渲染请假学生名单
+      renderAbsentStudents(absentStudentsList);
+      
+      // 绘制图表
+      drawAttendanceChart(totalPresent, totalAbsent);
+      drawClassComparisonChart(classAttendance);
+    }
+    
+    function renderAbsentStudents(absentStudentsList) {
+      absentStudents.innerHTML = '';
+      if (absentStudentsList.length === 0) {
+        absentStudents.appendChild(noAbsentStudents.cloneNode(true));
+        return;
+      }
+
+      // 按日期分组和排序
+      const absentByDate = {};
+      absentStudentsList.forEach(student => {
+          if (!absentByDate[student.date]) {
+              absentByDate[student.date] = [];
+          }
+          absentByDate[student.date].push(student);
+      });
+
+      // 获取排序后的日期（从新到旧）
+      const sortedDates = Object.keys(absentByDate).sort((a, b) => new Date(b) - new Date(a));
+
+      sortedDates.forEach(date => {
+          const dateGroup = absentByDate[date];
+          
+          // 添加日期标题
+          const dateHeader = document.createElement('div');
+          dateHeader.className = 'w-full text-center text-gray-400 text-sm py-2';
+          dateHeader.textContent = `--- ${date} ---`;
+          absentStudents.appendChild(dateHeader);
+
+          // 添加该日期下的所有请假学生
+          dateGroup.forEach(student => {
+              const studentItem = document.createElement('div');
+              studentItem.className = 'bg-dark/40 rounded-lg border border-accent/30 p-4';
+              studentItem.innerHTML = `
+                <div class="flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent">
+                    <i class="fa fa-user-times"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-medium">${student.name}</h4>
+                    <p class="text-sm text-gray-400">
+                      <i class="fa fa-calendar text-accent mr-1"></i>${student.day} · 
+                      <i class="fa fa-book text-accent mr-1"></i>${formatCourseName(student.course)}
+                    </p>
+                  </div>
+                </div>
+              `;
+              absentStudents.appendChild(studentItem);
+          });
+      });
+    }
+    
+    function drawAttendanceChart(totalPresent, totalAbsent) {
+      const ctx = document.getElementById('attendanceChart').getContext('2d');
+      if (window.attendanceChartInstance) window.attendanceChartInstance.destroy();
+      
+      window.attendanceChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['到课', '请假'],
+          datasets: [{
+            data: [totalPresent, totalAbsent],
+            backgroundColor: [
+              'rgba(79, 209, 197, 0.7)',
+              'rgba(255, 94, 98, 0.7)'
+            ],
+            borderColor: [
+              'rgba(79, 209, 197, 1)',
+              'rgba(255, 94, 98, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#F8FAFC', font: { family: 'Inter, sans-serif' } }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                  return `${label}: ${value}人 (${percentage}%)`;
+                }
+              }
+            }
+          },
+          cutout: '60%',
+          animation: { animateRotate: true, animateScale: true }
+        }
+      });
+    }
+    
+    function drawClassComparisonChart(classAttendance) {
+      const ctx = document.getElementById('classComparisonChart').getContext('2d');
+      if (window.classComparisonChartInstance) window.classComparisonChartInstance.destroy();
+      
+      const days = Object.keys(classAttendance);
+      const presentData = days.map(day => classAttendance[day].present);
+      const absentData = days.map(day => classAttendance[day].absent);
+      
+      window.classComparisonChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: days,
+          datasets: [
+            {
+              label: '到课',
+              data: presentData,
+              backgroundColor: 'rgba(79, 209, 197, 0.7)',
+              borderColor: 'rgba(79, 209, 197, 1)',
+              borderWidth: 1
+            },
+            {
+              label: '请假',
+              data: absentData,
+              backgroundColor: 'rgba(255, 94, 98, 0.7)',
+              borderColor: 'rgba(255, 94, 98, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#F8FAFC' }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#F8FAFC', precision: 0 }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#F8FAFC', font: { family: 'Inter, sans-serif' } }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.dataset.label || '';
+                  const value = context.raw || 0;
+                  return `${label}: ${value}人`;
+                }
+              }
+            }
+          },
+          animation: { animateScale: true, animateRotate: true }
+        }
+      });
+    }
+    
+    // 初始化
+    updateStudentCounts();
+  </script>
+</body>
+</html>
